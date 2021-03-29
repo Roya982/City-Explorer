@@ -1,66 +1,107 @@
 'use strict';
 
+//load variable from .env
+
+require('dotenv').config();
+
 // server section
 
 const express = require('express');
 const cors = require('cors');
-
+const superagent = require('superagent');
 const server = express();
 
-const PORT = 3000;
+const PORT = process.env.PORT;
+
+
 
 server.use(cors());
 
 
 // Location Section
 
+
+
 server.get('/location', callLocation);
 
-function Location(input) {
-  this.search_query = input.display_name;
-  this.formatted_query = input.formatted_query;
-  this.latitude = input.latitude;
-  this.longitude = input.longitude;
+
+function Location(city, geoData) {
+  this.search_query = city;
+  this.formatted_query = geoData.display_name;
+  this.latitude = geoData.lat;
+  this.longitude = geoData.lon;
 }
 
+const cachingLocation = {};
 
 function callLocation(request, response) {
-  let getLocation = require('./data/location.json');
-  let res = new Location(request.query.city, getLocation[0].display_name, getLocation[0].lat, getLocation[0].lon);
-  response.send(res);
+  let getLocation = request.query.city;
+  const LOCATION_API_KEY = process.env.LOCATION_API_KEY;
+  if(cachingLocation[city]){
+    response.send(cachingLocation[city]);
+  }else{
+    const locationUrl =`https://us1.locationiq.com/v1/search.php?key=${LOCATION_API_KEY}&q=${getLocation}&format=json&limit=1`;
+    superagent.get(locationUrl).then(res=>{
+
+      const locDat = res.body[0];
+      const location = new Location(getLocation, locDat);
+      cachingLocation[getLocation] = location;
+      response.send(location);
+
+    }).catch(error=>{
+      console.log('Error is happening here!!!');
+      console.log(error);
+    });
+    }
 }
 
 // Weather section
 
+const WEATHER_CODE_API_KEY = process.env.WEATHER_CODE_API_KEY;
+
 server.get('/weather', callWeather);
 
-function Weather(input) {
-  this.forecast = input.forecast;
-  this.time = input.time;
+function Weather(forecast, time) {
+  this.forecast = forecast;
+  this.time = time;
 }
 
-function callWeather( response){
-  const getWeather = require('./data/weather.json');
-  const weatherArray =[];
-  getWeather.data.forEach((element)=>{
-    weatherArray.push(new Weather(element.weather.description, element.valid_date));
-  })
-  response.send(weatherArray);
+function callWeather(request, response) {
+  let getWeather = request.query.search_query;
+  const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
+  
+  const weatherUrl =`https://api.weatherbit.io/v2.0/forecast/daily?city=${getWeather}&key=${WEATHER_API_KEY}`;
+  superagent.get(weatherUrl).then(res=>{
+
+    const weather = new Weather(res.weather.description, res.valid_date);
+    response.send(weather);
+  }).catch(error=>{
+    console.log('Error is happening here!!!');
+    console.log(error);
+  });
+  
 }
 
 
+//Parks section 
 
-// function callLocation(request, response){
-//   const getLocation = require('./data/location.json');
-//   const city = request.query.city;
-//   let obj = {
-//     name: getLocation[0].display_name,
-//     formatted_query: city,
-//     city : city,
-//     latitude: getLocation[0].lat,
-//     longitude: getLocation[0].lon
-//   };
-//   response.send(obj);
-// }
+function Parks (name, address, fee, description, url) {
+  this.name = name;
+  this.address = address;
+  this.fee = fee;
+  this.description = description;
+  this.url = url;
+}
 
-server.listen(PORT, ()=> console.log(`this is running on server ${PORT}`));
+
+// Running server
+
+server.listen(process.env.PORT , () =>console.log(`App is running on Server on port: 5000`));
+
+//error handler
+
+server.use('*', notFoundHandler);
+
+function notFoundHandler(request, response) {
+  response.status(404).send('requested API is Not Found!');
+}
