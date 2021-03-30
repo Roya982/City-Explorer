@@ -18,34 +18,43 @@ const PORT = process.env.PORT;
 server.use(cors());
 
 
+// Running server
+
+server.listen(process.env.PORT , () =>console.log(`App is running on Server on port: ${PORT}`));
+
+
 // Location Section
 
 
 
-server.get('/location', callLocation);
 
+const localLocation=[];
 
 function Location(city, geoData) {
   this.search_query = city;
   this.formatted_query = geoData.display_name;
   this.latitude = geoData.lat;
   this.longitude = geoData.lon;
+  localLocation.push(this);
 }
+
+server.get('/location', callLocation);
 
 const cachingLocation = {};
 
 function callLocation(request, response) {
-  let getLocation = request.query.city;
+  let getLocation = request.query.getLocation;
   const LOCATION_API_KEY = process.env.LOCATION_API_KEY;
-  if(cachingLocation[city]){
-    response.send(cachingLocation[city]);
+  if(cachingLocation[getLocation]){
+    response.send(cachingLocation[getLocation]);
   }else{
     const locationUrl =`https://us1.locationiq.com/v1/search.php?key=${LOCATION_API_KEY}&q=${getLocation}&format=json&limit=1`;
     superagent.get(locationUrl).then(res=>{
 
       const locDat = res.body[0];
       const location = new Location(getLocation, locDat);
-      cachingLocation[getLocation] = location;
+      cachingLocation.lat = locDat.lat;
+      cachingLocation.lon = locDat.lon;
       response.send(location);
 
     }).catch(error=>{
@@ -57,24 +66,27 @@ function callLocation(request, response) {
 
 // Weather section
 
-const WEATHER_CODE_API_KEY = process.env.WEATHER_CODE_API_KEY;
+
+
+function Weather(item) {
+  this.forecast = item.weather.description;
+  this.time = item.valid_date;
+}
 
 server.get('/weather', callWeather);
 
-function Weather(forecast, time) {
-  this.forecast = forecast;
-  this.time = time;
-}
 
 function callWeather(request, response) {
-  let getWeather = request.query.search_query;
+
+  
   const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
   
-  const weatherUrl =`https://api.weatherbit.io/v2.0/forecast/daily?city=${getWeather}&key=${WEATHER_API_KEY}`;
-  superagent.get(weatherUrl).then(res=>{
+  const weatherUrl =`https://api.weatherbit.io/v2.0/forecast/daily?city=${city}&key=${WEATHER_API_KEY}`;
 
-    const weather = new Weather(res.weather.description, res.valid_date);
-    response.send(weather);
+  superagent.get(weatherUrl).then(res=>{
+    
+    const momentWeather= res.body.data.map(element=>{new Weather(element);})
+    response.send(momentWeather);
   }).catch(error=>{
     console.log('Error is happening here!!!');
     console.log(error);
@@ -85,23 +97,36 @@ function callWeather(request, response) {
 
 //Parks section 
 
-function Parks (name, address, fee, description, url) {
-  this.name = name;
-  this.address = address;
-  this.fee = fee;
-  this.description = description;
-  this.url = url;
+function Parks (item) {
+  this.name = item.name;
+  this.url = item.url;
+}
+const allParks = [];
+server.get('/parks', callPark);
+
+function callPark(request, response){
+  const PARK_API_KEY = process.env.PARK_API_KEY;
+
+  let parkUrl = `https://developer.nps.gov/api/v1/parks?parkCode=la&limit=10&api_key=${PARK_API_KEY}`;
+
+  superagent.get(parkUrl).then(res=>{
+    res.body.data.map(item=>{
+      allParks.push(new Parks(item));
+      return allParks;
+    })
+    response.send(allParks);
+  }).catch(error=>{
+    console.log('Error is happening here!!!');
+    console.log(error);
+  });
+
 }
 
-
-// Running server
-
-server.listen(process.env.PORT , () =>console.log(`App is running on Server on port: 5000`));
 
 //error handler
 
 server.use('*', notFoundHandler);
 
 function notFoundHandler(request, response) {
-  response.status(404).send('requested API is Not Found!');
+  response.status(404).send('there is error here!!!');
 }
