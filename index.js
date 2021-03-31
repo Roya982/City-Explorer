@@ -42,19 +42,24 @@ server.get('/location', callLocation);
 
 const cachingLocation = {};
 
+let lat='';
+let lon='';
+
 function callLocation(request, response) {
-  let getLocation = request.query.getLocation;
+  let city = request.query.city;
   const LOCATION_API_KEY = process.env.LOCATION_API_KEY;
-  if(cachingLocation[getLocation]){
-    response.send(cachingLocation[getLocation]);
+  if(cachingLocation[city]){
+    response.send(cachingLocation[city]);
   }else{
-    const locationUrl =`https://us1.locationiq.com/v1/search.php?key=${LOCATION_API_KEY}&q=${getLocation}&format=json&limit=1`;
+    const locationUrl =`https://us1.locationiq.com/v1/search.php?key=${LOCATION_API_KEY}&q=${city}&format=json&limit=1`;
     superagent.get(locationUrl).then(res=>{
 
       const locDat = res.body[0];
-      const location = new Location(getLocation, locDat);
+      const location = new Location(city, locDat);
       cachingLocation.lat = locDat.lat;
       cachingLocation.lon = locDat.lon;
+      lat= locDat.lat;
+      lon = locDat.lon;
       response.send(location);
 
     }).catch(error=>{
@@ -81,12 +86,15 @@ function callWeather(request, response) {
   
   const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
   
-  const weatherUrl =`https://api.weatherbit.io/v2.0/forecast/daily?city=${city}&key=${WEATHER_API_KEY}`;
+  const weatherUrl = `https://api.weatherbit.io/v2.0/forecast/daily?&lat=${lat}&lon=${lon}&key=${WEATHER_API_KEY}`;
 
   superagent.get(weatherUrl).then(res=>{
     
-    const momentWeather= res.body.data.map(element=>{new Weather(element);})
+    const momentWeather= res.body.data.map(element=>new Weather(element));
+    console.log(momentWeather);
+    
     response.send(momentWeather);
+    
   }).catch(error=>{
     console.log('Error is happening here!!!');
     console.log(error);
