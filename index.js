@@ -166,6 +166,75 @@ function callPark(request, response){
 }
 
 
+//movies section
+
+server.get('/movies', callMovies);
+
+const MOVIE_API_KEY = process.env.MOVIE_API_KEY;
+
+function callMovies(request, response) {
+  const query = request.query.search_query;
+  let SQL2 = 'INSERT INTO movie (search_query,title,overview ,average_votes,total_votes,image_url,popularity,released_on) VALUES($1, $2, $3, $4, $5,$6,$7,$8) RETURNING *';
+  let SQL = 'SELECT * FROM movies WHERE search_query=$1';
+  client.query(SQL, [query]).then(data => {
+      
+    superagent.get(`https://api.themoviedb.org/3/search/movie?api_key=${MOVIE_API_KEY}&query=${query}`).then(data2 => {
+      data2.body.results.slice(0, 20).forEach(element => {
+        client.query(SQL2, [query,
+        element.title,
+        element.overview,
+        element.vote_average,
+        element.vote_count,
+        `https://image.tmdb.org/t/p/w500${element.poster_path}`,
+       element.popularity,
+       element.release_date
+      ]);
+    });
+  client.query('SELECT * FROM movies WHERE search_query=$1', [query]).then(data => {
+    response.send(data.rows);
+   });
+    }).catch(er => {
+    console.log(er);
+    response.status(500).send('Something went wrong with Movies API')
+  });
+  });
+     
+}
+
+
+//yelp section
+
+server.get('/yelp', callYelp);
+
+function callYelp(request, response) {
+  let query = request.query.search_query;
+  let page = request.query.page;
+  console.log(request.query);
+  let SQL = 'INSERT INTO restaurant (search_query,name,image_url ,price,rating,url) VALUES($1, $2, $3, $4, $5,$6) RETURNING *';
+  client.query('SELECT * FROM restaurant WHERE search_query=$1', [query]).then(data => {
+    superagent.get(`https://api.yelp.com/v3/businesses/search?location=${query}&limit=50`)
+      .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
+        .then(data2 => {
+            data2.body.businesses.forEach(ent => {
+              client.query(SQL, [query,
+                ent.name,
+                  ent.image_url,
+                  ent.price,
+                  ent.rating,
+                  ent.url
+                  ]);
+                });
+                client.query(`SELECT * FROM restaurant WHERE search_query=$1 Limit ${5*page} `, [query]).then(data => {
+                    response.send(data.rows);
+                });
+          }).catch(er => {
+           console.log(er);
+             response.status(500).send('Something went wrong with Yelp API')
+    });
+  });
+}
+
+
 //error handler
 
 server.use('*', notFoundHandler);
