@@ -17,3 +17,22 @@ CREAT TABLE IF NOT EXIST park(
     description VARCHAR(255)
 );
 
+CREATE TABLE IF NOT EXISTS movie(
+search_query VARCHAR(256),
+title VARCHAR(265),
+overview VARCHAR(1000),
+average_votes FLOAT,
+total_votes INT,
+image_url VARCHAR(265),
+popularity FLOAT,
+released_on VARCHAR(256)
+);
+
+CREATE TABLE IF NOT EXISTS restaurant (
+search_query VARCHAR(60),
+name VARCHAR(250),
+image_url VARCHAR(250),
+price VARCHAR(10),
+rating FLOAT,
+url VARCHAR(600)
+);
